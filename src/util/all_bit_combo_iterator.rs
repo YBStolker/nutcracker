@@ -6,7 +6,7 @@ pub struct AllBitIterator {
 }
 
 pub trait IntoAllBitIterator {
-    fn iter_gosper(self, count: usize) -> AllBitIterator;
+    fn iter_all_combos(self, count: usize) -> AllBitIterator;
 }
 
 impl IntoAllBitIterator for u64 {
@@ -19,9 +19,12 @@ impl IntoAllBitIterator for u64 {
     /// 2. Move all 1-bits that are to the right of that bit all the way to the right.
     ///
     ///
-    fn iter_gosper(self, combo_size: usize) -> AllBitIterator {
+    fn iter_all_combos(self, combo_size: usize) -> AllBitIterator {
         if combo_size > self.count_ones() as usize {
-            panic!("combo_size ({combo_size}) larger than the amount of 1-bits {}", self.count_ones());
+            panic!(
+                "combo_size ({combo_size}) larger than the amount of 1-bits {}",
+                self.count_ones()
+            );
         }
 
         let current: u64 = self
@@ -110,8 +113,8 @@ mod tests {
     fn test_all_bit_iter() {
         let instant = Instant::now();
 
-        for hand in FULL_DECK.iter_gosper(2) {
-            for _ in (FULL_DECK ^ hand).iter_gosper(5) {}
+        for hand in FULL_DECK.iter_all_combos(2) {
+            for _ in (FULL_DECK ^ hand).iter_all_combos(5) {}
             println!("{} {}", Cards::from(hand), instant.elapsed().as_secs_f32());
         }
 
@@ -128,19 +131,19 @@ mod tests {
         let count_factorial: u128 = (1..=count as u128).product();
         let total = mask_factorial / count_factorial;
 
-        let iter = to_iter.iter_gosper(count);
+        let iter = to_iter.iter_all_combos(count);
         assert_eq!(total, iter.count() as u128);
     }
 
     #[test]
     fn test_perf() {
         let hand = (ACE & SPADE) | (ACE & HEART);
-        let deck = FULL_DECK ^ hand;
+        let deck = Cards::from(FULL_DECK ^ hand).remove_cards(&Cards::from(SPADE | HEART | CLUB));
 
         let mut instant = Instant::now();
         let mut i = 0u64;
-        for table in deck.iter_gosper(5) {
-            for _ in (deck ^ table).iter_gosper(2) {
+        for table in deck.value().iter_all_combos(5) {
+            for _ in (deck.value() ^ table).iter_all_combos(2) {
                 i += 1;
                 if i % 10000000 == 0 {
                     println!("Elapsed {} {}", i, instant.elapsed().as_secs_f32());

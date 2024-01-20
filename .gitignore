@@ -1,2 +1,3 @@
 # the Target folder
 /target
+**/*.code-workspace

@@ -1,9 +1,8 @@
-use crate::engine::constants::*;
 use crate::util::all_bit_combo_iterator::IntoAllBitIterator;
-use crate::util::bit_iterator::IntoFromLeftBitIterator;
 
-use super::cards::{Cards, CardsError};
-use super::outcome::{Outcome, OutcomeError};
+use super::cards::Cards;
+use super::outcome::Outcome;
+use super::outcome::OutcomeError;
 
 #[derive(Debug)]
 pub enum RunoutError {
@@ -67,7 +66,10 @@ pub fn runout(player: Cards, table: Cards, deck: Cards) -> Result<Chance, Runout
     }
 
     let mut chance = Chance::default();
-    for new_table_cards in deck.value().iter_gosper(5 - table.card_count() as usize) {
+    for new_table_cards in deck
+        .value()
+        .iter_all_combos(5 - table.card_count() as usize)
+    {
         let new_table = table.add_cards(&Cards::from(new_table_cards));
 
         let player_outcome: Outcome = player
@@ -75,7 +77,7 @@ pub fn runout(player: Cards, table: Cards, deck: Cards) -> Result<Chance, Runout
             .try_into()
             .map_err(RunoutError::from)?;
 
-        for opponent_cards in deck.remove_cards(&new_table).value().iter_gosper(2) {
+        for opponent_cards in deck.remove_cards(&new_table).value().iter_all_combos(2) {
             let opponent_outcome: Outcome = Cards::from(opponent_cards)
                 .add_cards(&new_table)
                 .try_into()
@@ -96,7 +98,6 @@ pub fn runout(player: Cards, table: Cards, deck: Cards) -> Result<Chance, Runout
 mod tests {
     use crate::engine::cards::Cards;
     use crate::engine::constants::*;
-    use crate::engine::out_runner::runout;
 
     #[test]
     fn test_runout_table() {
@@ -121,4 +122,10 @@ mod tests {
 
         // println!("chance {:?}", chance)
     }
+
+    #[test]
+    fn test_testing() {
+        println!("I am testing!");
+    }
 }
+

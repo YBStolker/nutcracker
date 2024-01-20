@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
-use std::fmt::{write, Debug, Display};
+use std::fmt::Debug;
+use std::fmt::Display;
 
 use crate::util::bit_iterator::IntoFromLeftBitIterator;
 

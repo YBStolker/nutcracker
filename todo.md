@@ -1,2 +1,3 @@
 - Make a random agent
-- Refactor to Cards struct
+- Basic gameplay
+

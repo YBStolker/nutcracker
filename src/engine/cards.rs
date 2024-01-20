@@ -9,6 +9,7 @@ use super::constants::*;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CardsError {
     InvalidCards(Cards),
+    NoCards,
 }
 
 impl Display for CardsError {
@@ -66,6 +67,17 @@ impl Cards {
 
     pub fn try_remove_cards(&self, cards: &Cards) -> Result<Cards, CardsError> {
         Cards::new((self.value() | cards.value()) ^ cards.value())
+    }
+
+    pub fn take_random(&mut self) -> Result<Cards, CardsError> {
+        let card_count = self.card_count();
+        if card_count == 0 {
+            return Err(CardsError::NoCards);
+        }
+
+        
+
+        todo!();
     }
 
     pub fn has(&self, cards: u64) -> bool {

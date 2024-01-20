@@ -112,9 +112,10 @@ mod tests {
     #[test]
     fn test_all_bit_iter() {
         let instant = Instant::now();
+        let deck = FULL_DECK ^ DIAMOND ^ CLUB ^ SPADE;
 
-        for hand in FULL_DECK.iter_all_combos(2) {
-            for _ in (FULL_DECK ^ hand).iter_all_combos(5) {}
+        for hand in deck.iter_all_combos(2) {
+            for _ in (deck ^ hand).iter_all_combos(5) {}
             println!("{} {}", Cards::from(hand), instant.elapsed().as_secs_f32());
         }
 
@@ -123,13 +124,13 @@ mod tests {
 
     #[test]
     fn test_count() {
-        let to_iter = FULL_DECK;
+        let to_iter = FULL_DECK ^ DIAMOND ^ SPADE;
         let count = 5;
 
         let mask_count = to_iter.count_ones() as u128;
-        let mask_factorial: u128 = ((mask_count - count as u128 + 1)..=mask_count).product();
-        let count_factorial: u128 = (1..=count as u128).product();
-        let total = mask_factorial / count_factorial;
+        let mask_part: u128 = ((mask_count - count as u128 + 1)..=mask_count).product();
+        let count_part: u128 = (1..=count as u128).product();
+        let total = mask_part / count_part;
 
         let iter = to_iter.iter_all_combos(count);
         assert_eq!(total, iter.count() as u128);
@@ -138,7 +139,7 @@ mod tests {
     #[test]
     fn test_perf() {
         let hand = (ACE & SPADE) | (ACE & HEART);
-        let deck = Cards::from(FULL_DECK ^ hand).remove_cards(&Cards::from(SPADE | HEART | CLUB));
+        let deck = Cards::from(FULL_DECK ^ hand).remove_cards(&Cards::from(DIAMOND | HEART | CLUB));
 
         let mut instant = Instant::now();
         let mut i = 0u64;

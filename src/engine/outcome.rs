@@ -1,6 +1,4 @@
 use std::cmp::Ordering;
-use std::error::Error;
-use std::fmt::Display;
 
 use super::cards::Cards;
 use super::constants::*;
@@ -25,14 +23,13 @@ pub enum Outcome {
     HighCard(Cards),
 }
 
-impl TryFrom<Cards> for Outcome {
-    type Error = OutcomeError;
-
-    fn try_from(cards: Cards) -> Result<Self, Self::Error> {
+impl Outcome {
+    pub fn from_cards(cards: Cards) -> Result<Self, OutcomeError> {
         if cards.value().count_ones() < 5 {
             return Err(OutcomeError::CardCountTooLow(cards));
         }
 
+        let mut cards = cards;
         let flush = cards.get_flush();
         let straight = cards.get_straight();
 
@@ -45,13 +42,12 @@ impl TryFrom<Cards> for Outcome {
         let kinds = cards.get_kinds();
 
         if let Some(quads) = kinds.iter().find(|cards| cards.card_count() == 4) {
-            let cards = cards
-                .remove_cards(quads)
-                .get_highest(1)
-                .ok_or(OutcomeError::HighestCardNotFound(cards))?
-                .add_cards(quads);
+            cards.remove_cards(quads.value());
+            let tail = cards.get_highest(1).unwrap();
 
-            return Ok(Outcome::FourOfAKind(cards));
+            return Ok(Outcome::FourOfAKind(Cards::from(
+                quads.value() | tail.value(),
+            )));
         }
 
         if let Some(trips) = kinds.iter().find(|cards| cards.card_count() == 3) {
@@ -59,12 +55,9 @@ impl TryFrom<Cards> for Outcome {
                 .iter()
                 .find(|cards| cards != &trips && cards.card_count() >= 2)
             {
-                let pair = pair
-                    .get_highest(2) // May be a pair of more than 2 cards
-                    .ok_or(OutcomeError::HighestCardNotFound(cards))?;
-                let cards = trips.add_cards(&pair);
-
-                return Ok(Outcome::FullHouse(cards));
+                return Ok(Outcome::FullHouse(Cards::from(
+                    trips.value() | pair.value(),
+                )));
             }
         }
 
@@ -77,38 +70,32 @@ impl TryFrom<Cards> for Outcome {
         }
 
         if let Some(trips) = kinds.iter().find(|cards| cards.card_count() == 3) {
-            let cards = cards
-                .remove_cards(trips)
-                .get_highest(2)
-                .ok_or(OutcomeError::HighestCardNotFound(cards))?
-                .add_cards(trips);
+            cards.remove_cards(trips.value());
+            let tail = cards.get_highest(2).unwrap();
 
-            return Ok(Outcome::ThreeOfAKind(cards));
+            return Ok(Outcome::ThreeOfAKind(Cards::from(
+                trips.value() | tail.value(),
+            )));
         }
 
         if kinds.len() >= 2 {
             let pair1 = kinds.get(0).ok_or(OutcomeError::KindNotFound(cards))?;
             let pair2 = kinds.get(1).ok_or(OutcomeError::KindNotFound(cards))?;
 
-            let cards = cards
-                .remove_cards(pair1)
-                .remove_cards(pair2)
-                .get_highest(1)
-                .ok_or(OutcomeError::HighestCardNotFound(cards))?
-                .add_cards(pair1)
-                .add_cards(pair2);
+            cards.remove_cards(pair1.value());
+            cards.remove_cards(pair2.value());
+            let tail = cards.get_highest(1).unwrap();
 
-            return Ok(Outcome::TwoPair(cards));
+            return Ok(Outcome::TwoPair(Cards::from(
+                pair1.value() | pair2.value() | tail.value(),
+            )));
         }
 
         if let Some(pair) = kinds.first() {
-            let cards = cards
-                .remove_cards(pair)
-                .get_highest(3)
-                .ok_or(OutcomeError::HighestCardNotFound(cards))?
-                .add_cards(pair);
+            cards.remove_cards(pair.value());
+            let tail = cards.get_highest(3).unwrap();
 
-            return Ok(Outcome::Pair(cards));
+            return Ok(Outcome::Pair(Cards::from(pair.value() | tail.value())));
         }
 
         let high_card = cards
@@ -123,14 +110,14 @@ impl PartialOrd for Outcome {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
             (Outcome::StraightFlush(self_cards), Outcome::StraightFlush(other_cards)) => {
-                let mut self_cards = *self_cards;
-                if self_cards.has(ACE) && self_cards.has(FIVE) {
-                    self_cards = self_cards.remove_cards(&Cards::from(self_cards.value() & ACE));
+                let mut self_cards = self_cards.clone();
+                if self_cards.has_any(ACE) && self_cards.has_any(FIVE) .clone(){
+                    self_cards.remove_cards(self_cards.value() & ACE);
                 }
 
                 let mut other_cards = *other_cards;
-                if other_cards.has(ACE) && other_cards.has(FIVE) {
-                    other_cards = other_cards.remove_cards(&Cards::from(other_cards.value() & ACE));
+                if other_cards.has_any(ACE) && other_cards.has_any(FIVE) {
+                    other_cards.remove_cards(other_cards.value() & ACE);
                 }
 
                 Some(self_cards.compare_rank(&other_cards))
@@ -153,10 +140,13 @@ impl PartialOrd for Outcome {
                     return Some(compare_quads);
                 };
 
-                let self_rest = self_cards.remove_cards(self_quads);
-                let other_rest = other_cards.remove_cards(other_quads);
+                let mut self_cards = self_cards.clone().clone();
+                let mut other_cards = other_cards.clone().clone();
 
-                Some(self_rest.compare_rank(&other_rest))
+                self_cards.remove_cards(self_quads.value());
+                other_cards.remove_cards(other_quads.value());
+
+                Some(self_cards.compare_rank(&other_cards))
             }
             (Outcome::FourOfAKind(_), _) => Some(Ordering::Greater),
             (_, Outcome::FourOfAKind(_)) => Some(Ordering::Less),
@@ -189,14 +179,14 @@ impl PartialOrd for Outcome {
             (Outcome::Flush(_), _) => Some(Ordering::Greater),
             (_, Outcome::Flush(_)) => Some(Ordering::Less),
             (Outcome::Straight(self_cards), Outcome::Straight(other_cards)) => {
-                let mut self_cards = *self_cards;
-                if self_cards.has(ACE) && self_cards.has(FIVE) {
-                    self_cards = self_cards.remove_cards(&Cards::from(self_cards.value() & ACE));
+                let mut self_cards = self_cards.clone();
+                if self_cards.has_any(ACE) && self_cards.has_any(FIVE) .clone(){
+                    self_cards.remove_cards(self_cards.value() & ACE);
                 }
 
                 let mut other_cards = *other_cards;
-                if other_cards.has(ACE) && other_cards.has(FIVE) {
-                    other_cards = other_cards.remove_cards(&Cards::from(other_cards.value() & ACE));
+                if other_cards.has_any(ACE) && other_cards.has_any(FIVE) {
+                    other_cards.remove_cards(other_cards.value() & ACE);
                 }
 
                 Some(self_cards.compare_rank(&other_cards))
@@ -219,10 +209,13 @@ impl PartialOrd for Outcome {
                     return Some(compare_three);
                 };
 
-                let self_rest = self_cards.remove_cards(self_three);
-                let other_rest = other_cards.remove_cards(other_three);
+                let mut self_cards = self_cards.clone();
+                let mut other_cards = other_cards.clone();
 
-                Some(self_rest.compare_rank(&other_rest))
+                self_cards.remove_cards(self_three.value());
+                other_cards.remove_cards(other_three.value());
+
+                Some(self_cards.compare_rank(&other_cards))
             }
             (Outcome::ThreeOfAKind(_), _) => Some(Ordering::Greater),
             (_, Outcome::ThreeOfAKind(_)) => Some(Ordering::Less),
@@ -250,12 +243,16 @@ impl PartialOrd for Outcome {
                     return Some(compare_pair2);
                 };
 
-                let self_rest = self_cards.remove_cards(self_pair1).remove_cards(self_pair2);
-                let other_rest = other_cards
-                    .remove_cards(other_pair1)
-                    .remove_cards(other_pair2);
+                let mut self_cards = self_cards.clone();
+                let mut other_cards = other_cards.clone();
 
-                Some(self_rest.compare_rank(&other_rest))
+                self_cards.remove_cards(self_pair1.value());
+                self_cards.remove_cards(self_pair2.value());
+
+                other_cards.remove_cards(other_pair1.value());
+                other_cards.remove_cards(other_pair2.value());
+
+                Some(self_cards.compare_rank(&other_cards))
             }
             (Outcome::TwoPair(_), _) => Some(Ordering::Greater),
             (_, Outcome::TwoPair(_)) => Some(Ordering::Less),
@@ -275,10 +272,13 @@ impl PartialOrd for Outcome {
                     return Some(compare_pair);
                 };
 
-                let self_rest = self_cards.remove_cards(self_pair);
-                let other_rest = other_cards.remove_cards(other_pair);
+                let mut self_cards = self_cards.clone();
+                let mut other_cards = other_cards.clone();
 
-                Some(self_rest.compare_rank(&other_rest))
+                self_cards.remove_cards(self_pair.value());
+                other_cards.remove_cards(other_pair.value());
+
+                Some(self_cards.compare_rank(&other_cards))
             }
             (Outcome::Pair(_), _) => Some(Ordering::Greater),
             (_, Outcome::Pair(_)) => Some(Ordering::Less),
@@ -337,26 +337,30 @@ mod tests {
 
     #[test]
     fn test_straight_flush_ordering() {
-        let straight_flush1: Outcome =
-            Cards::from(ACE & SPADE | KING & SPADE | QUEEN & SPADE | JACK & SPADE | TEN & SPADE)
-                .try_into()
-                .unwrap();
-        let straight_flush2: Outcome =
-            Cards::from(ACE & HEART | KING & HEART | QUEEN & HEART | JACK & HEART | TEN & HEART)
-                .try_into()
-                .unwrap();
-        let straight_flush3: Outcome =
-            Cards::from(KING & SPADE | QUEEN & SPADE | JACK & SPADE | TEN & SPADE | NINE & SPADE)
-                .try_into()
-                .unwrap();
-        let straight_flush4: Outcome =
-            Cards::from(QUEEN & SPADE | JACK & SPADE | TEN & SPADE | NINE & SPADE | EIGHT & SPADE)
-                .try_into()
-                .unwrap();
-        let straight_flush5: Outcome =
-            Cards::from(SIX & SPADE | FIVE & SPADE | FOUR & SPADE | THREE & SPADE | TWO & SPADE)
-                .try_into()
-                .unwrap();
+        let straight_flush1: Outcome = Outcome::from_cards(Cards::from(
+            ACE & SPADE | KING & SPADE | QUEEN & SPADE | JACK & SPADE | TEN & SPADE,
+        ))
+        .unwrap();
+
+        let straight_flush2: Outcome = Outcome::from_cards(Cards::from(
+            ACE & HEART | KING & HEART | QUEEN & HEART | JACK & HEART | TEN & HEART,
+        ))
+        .unwrap();
+
+        let straight_flush3: Outcome = Outcome::from_cards(Cards::from(
+            KING & SPADE | QUEEN & SPADE | JACK & SPADE | TEN & SPADE | NINE & SPADE,
+        ))
+        .unwrap();
+
+        let straight_flush4: Outcome = Outcome::from_cards(Cards::from(
+            QUEEN & SPADE | JACK & SPADE | TEN & SPADE | NINE & SPADE | EIGHT & SPADE,
+        ))
+        .unwrap();
+
+        let straight_flush5: Outcome = Outcome::from_cards(Cards::from(
+            SIX & SPADE | FIVE & SPADE | FOUR & SPADE | THREE & SPADE | TWO & SPADE,
+        ))
+        .unwrap();
 
         assert_eq!(straight_flush1.cmp(&straight_flush2), Ordering::Equal);
         assert_eq!(straight_flush1.cmp(&straight_flush3), Ordering::Greater);
@@ -382,23 +386,24 @@ mod tests {
 
     #[test]
     fn test_four_of_a_kind_ordering() {
-        let quad1: Outcome = Cards::from(
+        let quad1: Outcome = Outcome::from_cards(Cards::from(
             ACE & HEART | QUEEN & SPADE | QUEEN & HEART | QUEEN & DIAMOND | QUEEN & CLUB,
-        )
-        .try_into()
+        ))
         .unwrap();
-        let quad2: Outcome =
-            Cards::from(ACE & HEART | FOUR & SPADE | FOUR & HEART | FOUR & DIAMOND | FOUR & CLUB)
-                .try_into()
-                .unwrap();
-        let quad3: Outcome =
-            Cards::from(EIGHT & HEART | FOUR & SPADE | FOUR & HEART | FOUR & DIAMOND | FOUR & CLUB)
-                .try_into()
-                .unwrap();
-        let quad4: Outcome = Cards::from(
+
+        let quad2: Outcome = Outcome::from_cards(Cards::from(
+            ACE & HEART | FOUR & SPADE | FOUR & HEART | FOUR & DIAMOND | FOUR & CLUB,
+        ))
+        .unwrap();
+
+        let quad3: Outcome = Outcome::from_cards(Cards::from(
+            EIGHT & HEART | FOUR & SPADE | FOUR & HEART | FOUR & DIAMOND | FOUR & CLUB,
+        ))
+        .unwrap();
+
+        let quad4: Outcome = Outcome::from_cards(Cards::from(
             EIGHT & DIAMOND | FOUR & SPADE | FOUR & HEART | FOUR & DIAMOND | FOUR & CLUB,
-        )
-        .try_into()
+        ))
         .unwrap();
 
         assert_eq!(quad1.cmp(&quad2), Ordering::Greater);

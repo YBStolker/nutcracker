@@ -70,18 +70,16 @@ pub fn runout(player: Cards, table: Cards, deck: Cards) -> Result<Chance, Runout
         .value()
         .iter_all_combos(5 - table.card_count() as usize)
     {
-        let new_table = table.add_cards(&Cards::from(new_table_cards));
+        let new_deck = Cards::from(deck.value() | new_table_cards);
+        let new_player = Cards::from(player.value() | new_table_cards);
 
-        let player_outcome: Outcome = player
-            .add_cards(&new_table)
-            .try_into()
-            .map_err(RunoutError::from)?;
+        let player_outcome: Outcome = Outcome::from_cards(new_player).map_err(RunoutError::from)?;
 
-        for opponent_cards in deck.remove_cards(&new_table).value().iter_all_combos(2) {
-            let opponent_outcome: Outcome = Cards::from(opponent_cards)
-                .add_cards(&new_table)
-                .try_into()
-                .map_err(RunoutError::from)?;
+        for opponent_cards in new_deck.value().iter_all_combos(2) {
+            let opponent_cards = Cards::from(opponent_cards | new_table_cards);
+
+            let opponent_outcome: Outcome =
+                Outcome::from_cards(opponent_cards).map_err(RunoutError::from)?;
 
             match player_outcome.cmp(&opponent_outcome) {
                 std::cmp::Ordering::Greater => chance.win += 1f32,
@@ -128,4 +126,3 @@ mod tests {
         println!("I am testing!");
     }
 }
-

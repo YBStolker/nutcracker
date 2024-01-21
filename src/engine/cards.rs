@@ -1,8 +1,10 @@
+use rand;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Display;
 
 use crate::util::bit_iterator::IntoFromLeftBitIterator;
+use crate::util::bit_iterator::IntoFromRightBitIterator;
 
 use super::constants::*;
 
@@ -32,9 +34,9 @@ pub struct Cards {
 }
 
 impl Cards {
-    pub fn new(value: u64) -> Result<Self, CardsError> {
+    pub fn new(value: u64) -> Result<Cards, CardsError> {
         let cards = Cards { _value: value };
-        if cards.is_valid() {
+        if Cards::is_valid(value) {
             Ok(cards)
         } else {
             Err(CardsError::InvalidCards(cards))
@@ -45,28 +47,25 @@ impl Cards {
         self._value
     }
 
-    pub fn is_valid(&self) -> bool {
-        self.value() != 0 && (FULL_DECK & self.value()) == self.value()
+    pub fn set_value(&mut self, new_value: u64) {
+        self._value = new_value;
+    }
+
+    pub fn add_cards(&mut self, cards: u64) {
+        self.set_value(self._value | cards)
+    }
+
+    pub fn remove_cards(&mut self, cards: u64) {
+        self.add_cards(cards);
+        self.set_value(self._value ^ cards);
+    }
+
+    pub fn is_valid(cards: u64) -> bool {
+        cards != 0 && (FULL_DECK & cards) == cards
     }
 
     pub fn card_count(&self) -> u32 {
         self.value().count_ones()
-    }
-
-    pub fn add_cards(&self, cards: &Cards) -> Cards {
-        Cards::from(self.value() | cards.value())
-    }
-
-    pub fn remove_cards(&self, cards: &Cards) -> Cards {
-        Cards::from((self.value() | cards.value()) ^ cards.value())
-    }
-
-    pub fn try_add_cards(&self, cards: &Cards) -> Result<Cards, CardsError> {
-        Cards::new(self.value() | cards.value())
-    }
-
-    pub fn try_remove_cards(&self, cards: &Cards) -> Result<Cards, CardsError> {
-        Cards::new((self.value() | cards.value()) ^ cards.value())
     }
 
     pub fn take_random(&mut self) -> Result<Cards, CardsError> {
@@ -75,12 +74,26 @@ impl Cards {
             return Err(CardsError::NoCards);
         }
 
-        
+        let random_number: f32 = rand::random();
+        let card_i = (random_number * card_count as f32) as usize;
+        for (i, c) in self
+            .value()
+            .iter_from_right()
+            .take(card_i + 1)
+            .skip(card_i)
+            .enumerate()
+        {
+            if i == card_i {
+                self._value ^= c;
+                return Ok(Cards::from(c));
+            }
+            break;
+        }
 
-        todo!();
+        unreachable!()
     }
 
-    pub fn has(&self, cards: u64) -> bool {
+    pub fn has_any(&self, cards: u64) -> bool {
         self.value() & cards != 0
     }
 
@@ -276,7 +289,7 @@ mod tests {
             _value: JACK & SPADE | TEN & SPADE | NINE & SPADE | EIGHT & SPADE | SEVEN & SPADE,
         };
 
-        assert_eq!(Ok(Outcome::StraightFlush(straight_flush)), hand.try_into());
+        assert_eq!(Ok(Outcome::StraightFlush(straight_flush)), Outcome::from_cards(hand));
     }
 
     #[test]
@@ -294,7 +307,7 @@ mod tests {
         let four_of_a_kind =
             Cards::from(TEN & SPADE | TEN & HEART | TEN & DIAMOND | TEN & CLUB | ACE & SPADE);
 
-        assert_eq!(Ok(Outcome::FourOfAKind(four_of_a_kind)), hand.try_into())
+        assert_eq!(Ok(Outcome::FourOfAKind(four_of_a_kind)), Outcome::from_cards(hand))
     }
 
     #[test]
@@ -312,7 +325,7 @@ mod tests {
         let full_house =
             Cards::from(FOUR & SPADE | FOUR & HEART | FOUR & DIAMOND | JACK & SPADE | JACK & CLUB);
 
-        assert_eq!(Ok(Outcome::FullHouse(full_house)), hand.try_into())
+        assert_eq!(Ok(Outcome::FullHouse(full_house)), Outcome::from_cards(hand))
     }
 
     #[test]
@@ -330,7 +343,7 @@ mod tests {
         let flush =
             Cards::from(ACE & SPADE | TEN & SPADE | SEVEN & SPADE | FOUR & SPADE | THREE & SPADE);
 
-        assert_eq!(Ok(Outcome::Flush(flush)), hand.try_into());
+        assert_eq!(Ok(Outcome::Flush(flush)), Outcome::from_cards(hand));
     }
 
     #[test]
@@ -348,7 +361,7 @@ mod tests {
         let straight =
             Cards::from(TEN & CLUB | NINE & CLUB | EIGHT & HEART | SEVEN & DIAMOND | SIX & HEART);
 
-        assert_eq!(Ok(Outcome::Straight(straight)), hand.try_into());
+        assert_eq!(Ok(Outcome::Straight(straight)), Outcome::from_cards(hand));
     }
 
     #[test]
@@ -367,7 +380,7 @@ mod tests {
             FOUR & SPADE | FOUR & HEART | FOUR & DIAMOND | ACE & SPADE | KING & DIAMOND,
         );
 
-        assert_eq!(Ok(Outcome::ThreeOfAKind(three_of_a_kind)), hand.try_into());
+        assert_eq!(Ok(Outcome::ThreeOfAKind(three_of_a_kind)), Outcome::from_cards(hand));
     }
 
     #[test]
@@ -385,7 +398,7 @@ mod tests {
         let two_pair =
             Cards::from(FOUR & SPADE | FOUR & HEART | JACK & DIAMOND | JACK & CLUB | ACE & SPADE);
 
-        assert_eq!(Ok(Outcome::TwoPair(two_pair)), hand.try_into())
+        assert_eq!(Ok(Outcome::TwoPair(two_pair)), Outcome::from_cards(hand))
     }
 
     #[test]
@@ -404,7 +417,7 @@ mod tests {
             EIGHT & SPADE | EIGHT & HEART | ACE & DIAMOND | QUEEN & SPADE | FOUR & CLUB,
         );
 
-        assert_eq!(Ok(Outcome::Pair(pair)), hand.try_into())
+        assert_eq!(Ok(Outcome::Pair(pair)), Outcome::from_cards(hand))
     }
 
     #[test]
@@ -422,6 +435,6 @@ mod tests {
         let high_card =
             Cards::from(ACE & SPADE | KING & DIAMOND | QUEEN & SPADE | TEN & HEART | FOUR & CLUB);
 
-        assert_eq!(Ok(Outcome::HighCard(high_card)), hand.try_into())
+        assert_eq!(Ok(Outcome::HighCard(high_card)), Outcome::from_cards(hand))
     }
 }

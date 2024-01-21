@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_perf() {
         let hand = (ACE & SPADE) | (ACE & HEART);
-        let deck = Cards::from(FULL_DECK ^ hand).remove_cards(&Cards::from(DIAMOND | HEART | CLUB));
+        let deck = Cards::from(FULL_DECK ^ (DIAMOND | HEART | CLUB | hand));
 
         let mut instant = Instant::now();
         let mut i = 0u64;

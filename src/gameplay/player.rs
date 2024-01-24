@@ -1,11 +1,12 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Player {
     name: String,
     stack: u32,
 }
 
 impl Player {
-    pub fn new(name: String, stack: u32) -> Self {
+    pub fn new(name: impl Into<String>, stack: u32) -> Self {
+        let name = name.into();
         Self { name, stack }
     }
 

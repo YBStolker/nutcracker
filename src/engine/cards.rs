@@ -76,18 +76,15 @@ impl Cards {
 
         let random_number: f32 = rand::random();
         let card_i = (random_number * card_count as f32) as usize;
-        for (i, c) in self
+        for (_, c) in self
             .value()
             .iter_from_right()
             .take(card_i + 1)
-            .skip(card_i)
             .enumerate()
+            .skip(card_i)
         {
-            if i == card_i {
-                self._value ^= c;
-                return Ok(Cards::from(c));
-            }
-            break;
+            self._value ^= c;
+            return Ok(Cards::from(c));
         }
 
         unreachable!()
@@ -268,6 +265,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_take_random() {
+        let mut cards = Cards::from(ACE & SPADE | FOUR & CLUB | KING & HEART | JACK & DIAMOND);
+
+        for _ in 0..cards.card_count() {
+            let taken_card = cards.take_random().unwrap();
+            println!("{}", taken_card);
+            assert!(taken_card.card_count() == 1)
+        }
+
+        println!("{}", cards);
+        assert!(cards.card_count() == 0)
+    }
+
+    #[test]
     fn test_into() {
         let cards = Cards::from(ACE & SPADE | FOUR & HEART | EIGHT & CLUB | JACK & DIAMOND);
         println!("{}", cards)
@@ -289,7 +300,10 @@ mod tests {
             _value: JACK & SPADE | TEN & SPADE | NINE & SPADE | EIGHT & SPADE | SEVEN & SPADE,
         };
 
-        assert_eq!(Ok(Outcome::StraightFlush(straight_flush)), Outcome::from_cards(hand));
+        assert_eq!(
+            Ok(Outcome::StraightFlush(straight_flush)),
+            Outcome::from_cards(hand)
+        );
     }
 
     #[test]
@@ -307,7 +321,10 @@ mod tests {
         let four_of_a_kind =
             Cards::from(TEN & SPADE | TEN & HEART | TEN & DIAMOND | TEN & CLUB | ACE & SPADE);
 
-        assert_eq!(Ok(Outcome::FourOfAKind(four_of_a_kind)), Outcome::from_cards(hand))
+        assert_eq!(
+            Ok(Outcome::FourOfAKind(four_of_a_kind)),
+            Outcome::from_cards(hand)
+        )
     }
 
     #[test]
@@ -325,7 +342,10 @@ mod tests {
         let full_house =
             Cards::from(FOUR & SPADE | FOUR & HEART | FOUR & DIAMOND | JACK & SPADE | JACK & CLUB);
 
-        assert_eq!(Ok(Outcome::FullHouse(full_house)), Outcome::from_cards(hand))
+        assert_eq!(
+            Ok(Outcome::FullHouse(full_house)),
+            Outcome::from_cards(hand)
+        )
     }
 
     #[test]
@@ -380,7 +400,10 @@ mod tests {
             FOUR & SPADE | FOUR & HEART | FOUR & DIAMOND | ACE & SPADE | KING & DIAMOND,
         );
 
-        assert_eq!(Ok(Outcome::ThreeOfAKind(three_of_a_kind)), Outcome::from_cards(hand));
+        assert_eq!(
+            Ok(Outcome::ThreeOfAKind(three_of_a_kind)),
+            Outcome::from_cards(hand)
+        );
     }
 
     #[test]

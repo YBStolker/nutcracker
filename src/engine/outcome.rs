@@ -111,7 +111,7 @@ impl PartialOrd for Outcome {
         match (self, other) {
             (Outcome::StraightFlush(self_cards), Outcome::StraightFlush(other_cards)) => {
                 let mut self_cards = self_cards.clone();
-                if self_cards.has_any(ACE) && self_cards.has_any(FIVE) .clone(){
+                if self_cards.has_any(ACE) && self_cards.has_any(FIVE).clone() {
                     self_cards.remove_cards(self_cards.value() & ACE);
                 }
 
@@ -180,7 +180,7 @@ impl PartialOrd for Outcome {
             (_, Outcome::Flush(_)) => Some(Ordering::Less),
             (Outcome::Straight(self_cards), Outcome::Straight(other_cards)) => {
                 let mut self_cards = self_cards.clone();
-                if self_cards.has_any(ACE) && self_cards.has_any(FIVE) .clone(){
+                if self_cards.has_any(ACE) && self_cards.has_any(FIVE).clone() {
                     self_cards.remove_cards(self_cards.value() & ACE);
                 }
 

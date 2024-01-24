@@ -14,15 +14,16 @@ pub enum GameEvent {
 #[derive(Debug, Default)]
 pub struct Game {
     players: Vec<Player>,
+    hands: Vec<Cards>,
     dealer: usize,
     deck: Cards,
     game_history: Vec<GameEvent>,
 }
 
 impl Game {
-    pub fn new(&mut self) -> Option<()> {
+    pub fn new_round(&mut self) -> bool {
         if self.players.len() < 2 {
-            return None;
+            return false;
         }
 
         let first_player = self.players.remove(0);
@@ -40,16 +41,24 @@ impl Game {
 
         self.deck = Cards::from(FULL_DECK);
 
-        Some(())
+        for i in 0..self.players.len() * 2 {
+            if let Some(hand) = self.hands.get_mut(i % self.players.len()) {
+                hand.add_cards(self.deck.take_random().unwrap().value());
+            } else {
+                self.hands.push(self.deck.take_random().unwrap())
+            }
+        }
+
+        true
     }
 
-    pub fn add_player(&mut self, player: Player) -> Option<()> {
+    pub fn add_player(&mut self, player: Player) -> bool {
         if player.stack() < 100 {
-            return None;
+            return false;
         }
 
         self.players.push(player);
-        Some(())
+        true
     }
 
     pub fn add_bet(&mut self, bet: u32) {
